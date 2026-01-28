@@ -1,0 +1,332 @@
+TWINS EDITOR — Functional Spec
+
+1) Branding
+
+What:
+	•	Product name: TWINS EDITOR.
+	•	Alconost logo shown in header (icon-300.jpg).
+
+UI: Header: logo + title.
+
+Notes: Logo is optional (hide on load error).
+
+⸻
+
+2) Core Layout / Skeleton
+
+What:
+	•	Two panes: Source (left, read-only in normal mode), Target (right, editable).
+	•	Each pane is a CodeMirror instance for Markdown; has header with file name; footer with metrics.
+	•	Core skeleton and styles are isolated from feature modules (plugins can be added without touching core).
+
+Dependencies: CodeMirror 5.x, Markdown mode, active-line addon.
+
+⸻
+
+3) Theme Switcher
+
+What:
+	•	Light/Dark toggle, persisted in localStorage.
+
+UI: Button “Theme”.
+
+Behavior:
+	•	Applies CodeMirror theme + page class.
+	•	Remembers last selection.
+
+⸻
+
+4) File Open / Save
+
+What:
+	•	Open Source / Open Target via native File Picker (showOpenFilePicker); fallback to <input type=file> if API unavailable.
+	•	Save Target saves as *_ready.md (suggested name = originalname_ready.md).
+	•	After successful save: Target is cleared (empty editor).
+	•	On save: write/update ## STATS then ## Changes blocks (see features 10–11).
+
+UI: Buttons: Open source, Open target, Save target.
+Hotkeys: Cmd/Ctrl+S (save), Cmd/Ctrl+O (open Target).
+
+Edge cases:
+	•	Never wipe editors on picker cancel/error.
+	•	If FS API missing, use download blob fallback.
+
+⸻
+
+5) Line Offset & Mirror (Index-to-Index)
+
+What:
+	•	Offset: Target line = Source line + offset (± with Reset).
+	•	Mirror: when cursor moves in one pane, exactly one peer line highlights in the other pane (strict, synchronous).
+	•	Highlighting is by line (not by sentence).
+
+UI: Offset controls: − / number / + / Reset.
+
+Behavior:
+	•	Cursor sync respects offset; clamp to valid line range.
+	•	Works both directions.
+
+⸻
+
+6) Lock Scroll & Cursor Sync
+
+What:
+	•	When enabled, scrolling one pane scrolls the other; cursor positions track peer line.
+
+UI: Checkbox “Lock scroll”.
+
+⸻
+
+7) Keywords (Per-file)
+
+What:
+	•	Parse keys from either:
+	•	Inline: Keywords: a, b, c
+	•	Section: # Keywords followed by list (lines, bullets, or comma/semicolon separated).
+	•	Separate keyword lists per pane (Source vs Target).
+	•	Exact token/phrase overlay in text (no partial matches).
+	•	Footer chips show count and % of words per key.
+	•	Density color by percentage:
+	•	gray: p < 0.5% (too rare)
+	•	blue: 0.5-1.5% (under-used)
+	•	green: 1.6–2.9% (good)
+	•	red: p > 3.0% (over-use)
+	•	Click a chip → highlight all occurrences (focus overlay).
+
+Behavior: live update on change.
+
+Option: keys outside min/max thresholds may be skipped from highlight (thresholds configurable).
+
+⸻
+
+8) Keyword Parsing & Counting Rules
+
+What:
+	•	NLP/Keywords/Stats operate only on main text (everything before the first solo line ---).
+	•	Tail (after ---) is excluded from counts but preserved in file.
+
+Behavior: live recompute on edit.
+
+⸻
+
+9) STATS Block (+ Live Footer)
+
+What:
+	•	Counts computed on main block only:
+	•	Characters (with spaces)
+	•	Words
+	•	Headings count
+	•	SHA256 (main text block)
+	•	Made at (UTC) — timestamp label (explicitly “Made at”, not “Parsed at”)
+	•	UI footers under each pane:
+	1.	chars / words / headings
+	2.	keywords (chips with count + %)
+	3.	bi (top 12 bigrams, one row)
+	4.	tri (top 12 trigrams, one row)
+
+Behavior:
+	•	On save: insert or update ## STATS in file (before ## Changes).
+	•	Live footer re-renders on each change.
+
+⸻
+
+10) Changes (Proofread Changelog)
+
+What:
+	•	On save (any mode), append or update ## Changes (proofread) after ## STATS.
+	•	Format by type (numbered items):
+	•	replace: 1. old → new
+	•	insert: 2. + inserted text
+	•	delete: 3. − deleted text
+
+Behavior:
+	•	In Translation mode: still include Changes if diffs exist.
+	•	Diff is against baseline (see Proofread mode).
+
+⸻
+
+11) Proofread Mode (Diff)
+
+What:
+	•	Toggle: Translation ↔ Proofread.
+	•	Proofread ON:
+	•	Left shows baseline (snapshot of Target at mode entry), read-only.
+	•	Right remains editable current Target.
+	•	Only actual differences are highlighted (do not mark entire doc as insert).
+	•	Colors:
+	•	replace — orange (both panes)
+	•	insert — pink (right pane)
+	•	delete — red (left pane, with strikethrough styling)
+
+Behavior:
+	•	If baseline == target: no highlights.
+	•	On save: write Changes block per current baseline diff.
+	•	Exiting mode restores original Source text and labels.
+
+Edge cases:
+	•	Deletions must remain visible (left pane highlight) to show exact position.
+
+⸻
+
+12) Visual Diff Highlight (Inline Feel)
+
+What:
+	•	Replacement spans — orange in both panes.
+	•	Insertions — pink in right.
+	•	Deletions — red in left (+ strikethrough).
+
+Behavior:
+	•	Works line-granular with inline segment marking where possible.
+
+⸻
+
+13) Editing & Selection (Target)
+
+What:
+	•	Full text editing in right pane: cursor, selection with mouse, copy/move/delete supported via native shortcuts.
+	•	Undo/Redo supported (CodeMirror history).
+	•	Optional dedicated Undo / Redo buttons.
+
+⸻
+
+14) Align / Matching Strategy
+
+What:
+	•	Only Align by lines (index-to-index) is used.
+	•	“Align by headings/paragraphs” is removed.
+
+Behavior:
+	•	Use Offset for drift after translation.
+
+⸻
+
+15) NLP (Bigrams/Trigrams + Lemmas)
+
+What:
+	•	Preferred signals: Unique lemmas + bigrams/trigrams.
+	•	UI:
+	•	Preview under each pane: top-5 bi and top-5 tri in one line each.
+	•	Sidebar (“NLP Details ▸”): tables for Top Lemmas (top-N), Top Bigrams, Top Trigrams.
+
+Rules:
+	•	Do not show single lemmas next to keywords in the footer (avoid function words noise).
+	•	NLP operates on main text only (ignores tail).
+
+⸻
+
+16) Click-to-Highlight (NLP/Keywords)
+
+What:
+	•	Clicking any chip (keyword, bi, tri) highlights all its occurrences in the pane (focus overlay, red tint).
+
+⸻
+
+17) Counts + Percent + Color Saturation
+
+What:
+	•	Each keyword/phrase shows count and % of total words.
+	•	Color coding by share: blue (0.5–1.5%), green (1.6–2.9%), red (>3.0%), gray (< 0.5%).
+	•	Over-threshold items may be skipped from highlight (optional rule; configurable).
+
+⸻
+
+18) Live Updates + Autosave + Undo Step
+
+What:
+	•	Live: Stats, keyword counts, n-grams update on text change.
+	•	Autosave: optional periodic save (user-toggle, off by default is acceptable; do not duplicate “Save target” behavior).
+	•	Undo step: normal editor undo/redo; optional “Undo last change” button (one history step).
+
+⸻
+
+19) Spellcheck & Grammar
+
+What:
+	•	Browser spellcheck enabled in Target editor.
+	•	Grammar toggle:
+	•	Primary: simple client rules (double spaces, repeated punctuation, adjacent repeated words).
+	•	Optional: LanguageTool API integration (if network present); silent fallback to local rules.
+
+UI: Checkbox “Grammar”.
+
+Visual: Wavy red underline for issues.
+
+⸻
+
+20) File Tail Handling (---)
+
+What:
+	•	First solo line --- splits file: main (above) and tail (below).
+	•	NLP/Keywords/Stats ignore tail.
+	•	Save must preserve tail; ## STATS and ## Changes are written after main block (i.e., above or inside tail according to chosen placement — single consistent policy).
+
+⸻
+
+21) Save Flow (Exact Order)
+
+What:
+On Save target:
+	1.	Compute stats on main.
+	2.	Write/replace the ## STATS block:
+	•	Characters (with spaces)
+	•	Words
+	•	Headings count
+	•	SHA256 (main text block)
+	•	Made at (UTC)
+	3.	Write/replace ## Changes (proofread) if diffs exist.
+	4.	Save file as *_ready.md.
+	5.	Clear Target pane and reset right footer.
+	6.	Update last snapshot reference for next Proofread session.
+
+⸻
+
+22) UX Extras
+
+What:
+	•	Buttons: Mode: Translation/Proofread, Open source, Open target, Save, Theme, Undo, Redo, Grammar, Offset: − / number / + / Reset, Lock scroll, NLP Details.
+	•	Tooltips explain behavior.
+	•	Hotkeys: Cmd/Ctrl+S (save), Cmd/Ctrl+O (open Target).
+
+⸻
+
+23) Code Requirements
+
+What:
+	•	English-only in strings/comments.
+	•	Features delivered as modular patches/plugins (idempotent), not breaking core.
+	•	Never remove existing features when adding new ones.
+
+⸻
+
+24) Bug-Fix Expectations (Behavioral Guarantees)
+
+What:
+	•	Proofread highlights only real differences (no “everything is insert”).
+	•	Deletions remain visible (left pane).
+	•	Peer line highlight is strictly one-line and synchronized (no flipping sides).
+	•	Keyword overlay is exact (no partial/substring bleeding).
+	•	Adding features must not break Theme, Open/Save, Offset, Lock scroll.
+
+⸻
+
+25) Dev Workflow
+
+What:
+	1.	Ship/confirm core skeleton (two panes, open/save, theme, offset, mirror, lock scroll).
+	2.	Deliver features as isolated plugins with exact “insert here → code block” instructions.
+	3.	Each plugin = one feature (e.g., NLP sidebar, Proofread diff, STATS writer).
+	4.	Patches must be incremental and reversible.
+
+⸻
+
+Acceptance Checklist (quick)
+	•	Brand shows “TWINS EDITOR” + logo if available.
+	•	Open/Save work with/without FS API; Save clears Target; filename ends with _ready.md.
+	•	Mirror highlights exactly one peer line; Offset works both ways; Lock scroll syncs.
+	•	Footers show 4 rows (stats / keywords% / bi / tri) and update live.
+	•	Keyword chips show count + %, colored by thresholds; click highlights tokens; overlay is exact.
+	•	NLP preview (bi/tri) below panes; full tables in sidebar; tail ignored.
+	•	Proofread toggles baseline vs current; replace=orange, insert=pink, delete=red (left).
+	•	Save writes ## STATS (with Made at) then ## Changes; tail preserved.
+	•	Spellcheck on; Grammar toggle provides client hints; (optional) LanguageTool fallback.
+	•	No Russian in code/comments; new features don’t break existing ones.

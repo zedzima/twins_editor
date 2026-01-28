@@ -1,0 +1,89 @@
+Got it — no code. Here’s the spec addendum that replaces the wrong baseline logic and ties it explicitly to the STATS hash. Drop this into your spec as v2.1 Baseline & Hash semantics (it updates Modes, Save, and Acceptance).
+
+⸻
+
+Addendum (v2.1) — Baseline Persistence & Hash-Driven Refresh
+
+A) Definitions
+	•	Main block: everything before the first solo ---.
+	•	Tail: everything after the first solo ---.
+	•	Baseline: a snapshot of the Target (full text) used as the left pane content in Proofread mode.
+	•	Saved hash: SHA256 over the main block of the text that was last successfully saved (## STATS → SHA256 (main text block)).
+
+⸻
+
+B) Baseline creation & persistence
+	1.	First enter into Proofread (this session):
+	•	If no baseline exists, create Baseline = current Target (full text).
+	•	Display Baseline in the left pane (read-only).
+	•	Do not compute/update the saved hash here; baseline is not “saved” yet.
+	2.	Toggling between modes (Translation ↔ Proofread):
+	•	Do not recreate or modify baseline on toggles.
+	•	The left pane shows:
+	•	Proofread: the same original Baseline as created at the first Proofread entry (until a Save happens).
+	•	Translation: Source if a source file was opened; otherwise Empty.
+	3.	Baseline refresh condition:
+	•	Baseline refreshes only after a successful Save (see Section C).
+	•	Toggling modes never refreshes the baseline.
+
+⸻
+
+C) Save behavior & hash semantics
+	1.	On successful Save Target:
+	•	Compute the saved hash = SHA256 of the main block of the just-saved Target.
+	•	Write/replace ## STATS in the tail (including “Made at (UTC)” and the saved hash).
+	•	Write/replace ## Changes (proofread) in the tail (diff source depends on mode; unchanged here).
+	•	Refresh the baseline to the just-saved Target (full text).
+	•	Associate the baseline with that saved hash (they now match).
+	•	Clear Target (per existing rule).
+	2.	If a Save attempt fails (no file written):
+	•	Do not change baseline.
+	•	Do not change saved hash.
+	3.	Why hash matters:
+	•	The saved hash is the single source of truth that a version actually made it to disk.
+	•	If you re-open a file or re-enter modes and the saved hash didn’t change, baseline must remain exactly as it was (no implicit refresh).
+
+⸻
+
+D) Diff source rules (unchanged, clarified)
+	•	Proofread mode: diff = Baseline vs Target.
+	•	Translation mode:
+	•	If Source exists → diff = Source vs Target.
+	•	Else → diff = Baseline vs Target (if a baseline exists).
+
+⸻
+
+E) UI/UX clarifications
+	•	Mode switch (above left pane): Only switches what the left pane shows; it does not re-snapshot.
+	•	Left pane labels:
+	•	Proofread: “— baseline (snapshot) —”
+	•	Translation w/ source: “Source: ”
+	•	Translation w/o source: “— empty —”
+	•	Visual diffs in Proofread always reflect the persisted Baseline, not the current Target.
+
+⸻
+
+F) Edge cases
+	•	Enter Proofread with empty Target → baseline is empty; diffs show nothing until edits occur.
+	•	Open a new Target after a Baseline exists → baseline still persists until you Save this new Target; only then does baseline refresh.
+	•	Re-enter Proofread after edits without saving → diffs compare the original baseline to the edited Target (as intended).
+
+⸻
+
+G) Acceptance tests (concise)
+	1.	Toggle persistence:
+	•	Enter Proofread (create baseline), make edits, toggle to Translation and back → baseline is unchanged; diffs still compare to the original baseline.
+	2.	Hash-gated refresh:
+	•	Edit Target, do not Save → baseline unchanged.
+	•	Save Target → ## STATS contains a new SHA256; baseline updates to the saved content; immediate re-entry to Proofread shows no diff.
+	3.	No save, no change:
+	•	After edits, close/reopen the UI without saving → baseline remains the last saved snapshot; diffs compare against that.
+	4.	Translation diff source precedence:
+	•	With Source open: Changes block on Save uses Source vs Target.
+	•	Without Source: Changes block uses Baseline vs Target.
+
+⸻
+
+H) One-line spec replacement (drop-in)
+
+Baseline refresh policy: Baseline is created on the first entry to Proofread and persists unchanged across all mode toggles. It refreshes only after a successful Save (as evidenced by the newly written ## STATS → SHA256). If the saved hash has not changed since the last Save, the Baseline must remain as-is.

@@ -1,0 +1,322 @@
+Got it. Here’s the full, English-only specification of TWINS EDITOR, incorporating all of your constraints, including the revised density buckets, separate treatment of Live Footer vs STATS Block, the complete buttons list, and the mode logic & scenarios.
+
+⸻
+
+TWINS EDITOR — Product & Functional Specification (v2)
+
+1) Branding
+	•	Name: TWINS EDITOR
+	•	Logo: icon-300.jpg in the header; hide gracefully if the image fails to load.
+
+⸻
+
+2) Core Layout / Skeleton
+	•	Two CodeMirror panes (Markdown):
+	•	Left (Source / Baseline / Empty) — read-only in normal translation mode; can show Source or Baseline (see Modes).
+	•	Right (Target) — editable.
+	•	Each pane has:
+	•	A header with a file name label.
+	•	A Live Footer (real-time metrics/insights).
+	•	Architecture:
+	•	Core skeleton (layout, styles, base events) is separate from feature modules.
+	•	New functions ship as plugins/patches that do not break or replace core.
+
+⸻
+
+3) Modes (Translation & Proofread) — Master Logic
+
+3.1 Available modes
+	•	Translation mode
+	•	Left pane shows Source (if opened), read-only.
+	•	Right pane shows Target, editable.
+	•	Line mirror (peer line highlight) and Offset apply.
+	•	Proofread mode
+	•	Left pane shows Baseline — a snapshot of Target taken when entering Proofread; read-only.
+	•	Right pane shows current Target, editable.
+	•	Only real differences between Baseline and Target are highlighted (replace/insert/delete).
+
+Left pane can be in one of three states:
+Source (when a source file is opened in Translation), Baseline (when in Proofread), or Empty (neither Source nor Baseline available).
+
+3.2 Mode switching and left-pane content rules
+	•	Mode switch: placed above the left pane as Mode: [Translation]  [Proofread].
+	•	Open Source, Offset, and Lock scroll controls are also above the left pane.
+
+Switch behavior:
+	•	Entering Proofread:
+	•	Create a new Baseline snapshot from the current Target and show it on the left.
+	•	If Target is empty, the Baseline is empty (left remains empty).
+	•	Returning to Translation:
+	•	If a Source file was previously opened, show Source on the left.
+	•	If no Source was ever opened, left remains Empty.
+	•	Starting directly in Proofread (no source, only a target):
+	•	Open Target → enter Proofread → left becomes Baseline snapshot of that Target.
+
+Save & Baseline:
+	•	Baseline is re-established each time you enter Proofread (clear, explicit rule).
+
+⸻
+
+4) Buttons & Controls (complete list)
+
+Above the left pane (mode & alignment region):
+	•	Mode: Translation / Proofread (toggle)
+	•	Open Source
+	•	Offset: − / number / + / Reset
+	•	Lock scroll (two-way scroll/cursor sync)
+
+Global / top toolbar:
+	•	Open Target
+	•	Save (Save Target → *_ready.md)
+	•	Theme (Light/Dark, persisted)
+	•	Undo
+	•	Redo
+	•	Grammar (toggle)
+	•	NLP Details (opens right sidebar)
+
+Hotkeys:
+	•	Cmd/Ctrl + S → Save Target
+	•	Cmd/Ctrl + O → Open Target
+
+⸻
+
+5) File Open & Save
+
+Open Source / Open Target
+	•	Use window.showOpenFilePicker when available; fallback to <input type="file"> otherwise.
+	•	On cancel or error: do not clear any editor content.
+
+Save Target
+	•	Suggest file name originalname_ready.md (append _ready before .md).
+	•	On save:
+	1.	Compute up-to-date metrics for main block only (everything before the first solo ---).
+	2.	Insert or update the ## STATS block in the tail (after ---).
+	3.	Insert or update the ## Changes (proofread) block (diff depends on mode; see “Changes”).
+	4.	Write file.
+	5.	Clear Target (right pane).
+	6.	Update any “last snapshot” reference as needed.
+
+⸻
+
+6) Offset & Mirror (index-to-index)
+	•	Mirror: moving the cursor in one pane highlights exactly one peer line in the opposite pane.
+	•	Offset rule: Target line = Source line + offset.
+	•	Controls: −, numeric input, +, Reset.
+	•	Clamping to valid line ranges; works both directions.
+
+⸻
+
+7) Lock Scroll & Cursor Sync
+	•	When enabled: two-way synchronized scrolling and cursor movement, obeying the current Offset.
+
+⸻
+
+8) Keyword Extraction & Overlay (per file)
+	•	Supported keyword sources:
+	•	Inline: Keywords: a, b, c
+	•	Section: # Keywords followed by lines/bullets/comma- or semicolon-separated values
+	•	Each pane (Source/Target) has its own keyword list.
+	•	Exact token/phrase overlay (no partial token matches).
+	•	Live Footer shows chips per keyword with:
+	•	count of occurrences in main block,
+	•	percentage of total words in main block,
+	•	density color (see “Density Colors” below).
+	•	Clicking a chip highlights all occurrences in the pane (focus overlay).
+
+Optional rule: filter out highlights beyond certain thresholds (configurable).
+
+⸻
+
+9) Live Footer (separate feature)
+	•	Always computed from the main block only (before ---), and updates in real time on text changes.
+	•	Four compact rows per pane:
+	1.	chars / words / headings
+	2.	keywords: chips with count and % (colored by density)
+	3.	bi: top 12 bigrams (single row)
+	4.	tri: top 12 trigrams (single row)
+	•	Clicking any chip (keywords, bi, tri) applies a red focus overlay to all occurrences.
+	•	The Live Footer is independent of the STATS block (which is written into the file on Save).
+
+⸻
+
+10) NLP (lemmas, bigrams, trigrams)
+	•	Preferred signals: unique lemmas, bigrams, trigrams.
+	•	Preview under each pane (in the Live Footer): show top-5 bi and top-5 tri only (to keep it compact and useful).
+	•	NLP Details sidebar:
+	•	Top Lemmas (top-N)
+	•	Top Bigrams
+	•	Top Trigrams
+	•	NLP uses the main block only (tail ignored).
+	•	Do not show single lemmas next to keywords in the footer (avoid function-word noise).
+
+⸻
+
+11) STATS Block (separate feature)
+	•	Inserted/updated into the tail (after ---) on Save.
+	•	Format (exact fields, main block only):
+
+## STATS
+- Characters (with spaces): <N>
+- Words: <N>
+- Headings count: <N>
+- SHA256 (main text block): <hex>
+- Made at (UTC): <ISO 8601>
+
+
+	•	“Made at” (not “Parsed at”) is the final line of the block.
+
+⸻
+
+12) Changes (proofread changelog)
+	•	Inserted/updated after ## STATS on Save.
+	•	Format example:
+
+## Changes (proofread)
+1. replace: `old` → `new`
+2. insert:  + `inserted text`
+3. delete:  − `deleted text`
+
+
+	•	Diff source depends on context:
+	•	Translation mode: if Source exists → Source vs Target; else Baseline vs Target.
+	•	Proofread mode: always Baseline vs Target.
+	•	Enumerate by occurrence order; group by type as shown.
+
+⸻
+
+13) Diff Visualization (Proofread)
+	•	Show only real differences (do not mark the entire document as inserted).
+	•	Colors (latest decision):
+	•	replace → orange (both panes)
+	•	insert → pink (right pane)
+	•	delete → red (left pane, with strikethrough)
+	•	If Baseline equals Target, show no highlights.
+	•	Deletions must remain visible on the left so the removal position is obvious.
+
+⸻
+
+14) Editing & Selection (Target)
+	•	Right pane supports full editing, cursor selection with mouse, copy/move/delete via native shortcuts.
+	•	Undo / Redo supported via CodeMirror history and dedicated buttons.
+
+⸻
+
+15) Align / Matching Strategy
+	•	Only Align by lines (index-to-index) is supported.
+	•	“Align by headings/paragraphs” is explicitly removed.
+	•	Use Offset to compensate for line drift caused by translation.
+
+⸻
+
+16) Click-to-Highlight (keywords & n-grams)
+	•	Clicking a chip (keyword, bigram, trigram) highlights all occurrences in the pane (red focus overlay).
+	•	Overlay is exact (does not highlight partial tokens).
+
+⸻
+
+17) Density Colors (keyword & n-gram saturation)
+
+Definition:
+Let p = 100 * (occurrences_of_term / total_words_in_main_block).
+	•	Bucket selection uses the unrounded p.
+	•	Display p with two decimals (round half up).
+
+Buckets (mutually exclusive):
+	•	gray: 0 ≤ p < 0.5% (too rare)
+	•	blue: 0.5% ≤ p ≤ 1.5% (under-used)
+	•	green: 1.6% ≤ p ≤ 2.9% (good)
+	•	red: p ≥ 3.0% (over-use)
+
+(If you want strictly p > 3.0% for red, state it and we’ll adjust; ≥ 3.0% avoids ambiguity at exactly 3.0%.)
+
+⸻
+
+18) Live Updates & Autosave
+	•	Live updates: Live Footer, overlays, and density chips update on every relevant edit.
+	•	Autosave: optional, periodic; off by default to avoid conflicting with explicit Save. When enabled, it must not alter the _ready.md filename rule or the STATS/Changes write order.
+
+⸻
+
+19) Spellcheck & Grammar
+	•	Browser spellcheck enabled for the right pane.
+	•	Grammar toggle:
+	•	Local, fast checks: double spaces, repeated punctuation, adjacent repeated words.
+	•	Optional external checks (e.g., LanguageTool API) with silent fallback to local rules if the network or API is unavailable.
+	•	Visual: red wavy underline for grammar issues.
+
+⸻
+
+20) File Tail Handling (---)
+	•	The first solo line --- splits the file into:
+	•	main block (above) — used for all counts/NLP/overlays/Live Footer.
+	•	tail (below) — preserved; STATS and Changes are written here on Save.
+	•	Saving must preserve any existing tail content that is not STATS/Changes (i.e., update/replace those blocks only).
+
+⸻
+
+21) UI Placement Summary
+	•	Above Left pane: Mode (Translation/Proofread), Open Source, Offset (− / number / + / Reset), Lock scroll.
+	•	Top toolbar: Open Target, Save, Theme, Undo, Redo, Grammar, NLP Details.
+
+⸻
+
+22) Usage Scenarios
+
+Scenario 1 — Translation
+	1.	Open Source (left).
+	2.	Open Target (right).
+	3.	Edit inaccuracies in Target; leverage keywords & n-gram overlays.
+	4.	Save:
+	•	Write/update ## STATS (main block).
+	•	Write/update ## Changes (proofread) using Source vs Target (if Source exists) or Baseline vs Target (if not).
+	•	Save as *_ready.md.
+	•	Clear Target.
+
+Scenario 2 — Proofread
+
+A) After Scenario 1:
+	1.	Switch Mode → Proofread.
+	2.	Left becomes Baseline (snapshot of Target at entry).
+	3.	Edit Target; see only real diffs (replace/insert/delete).
+	4.	Save → write/update ## STATS + ## Changes (Baseline vs Target), clear Target.
+
+B) From scratch (no Source):
+	1.	Open Target.
+	2.	Mode → Proofread → left becomes Baseline from current Target.
+	3.	Edit and Save as above.
+
+Switching back to Translation:
+	•	If a Source was previously opened → Left = Source.
+	•	If no Source → Left = Empty.
+	•	Re-entering Proofread creates a fresh Baseline from current Target.
+
+⸻
+
+23) Code & Delivery Requirements
+	•	English-only in UI strings and comments.
+	•	New features delivered as modular, idempotent plugins/patches; do not remove or rewrite existing functions.
+	•	Must not break: Theme, Open/Save (with fallback), Offset, Lock scroll, Mirror, keyword/n-gram overlays, Live Footer.
+
+⸻
+
+24) Acceptance Checklist
+	•	All controls present and placed as specified (Modes, Open Source/Target, Save, Theme, Undo, Redo, Grammar, Offset set, Lock scroll, NLP Details).
+	•	Mode logic works exactly as specified (Left cycles Source/Baseline/Empty per rules; fresh Baseline on Proofread entry).
+	•	Mirror highlights exactly one peer line; Offset applies both ways; Lock scroll syncs.
+	•	Live Footer shows 4 rows and updates live; clicking chips focuses text; overlays are exact token/phrase matches.
+	•	Density buckets apply with the exact thresholds above; % display uses two decimals.
+	•	NLP preview (top-5 bi/tri) and sidebar (lemmas, bi, tri) computed from main block; tail ignored.
+	•	Save inserts/updates ## STATS (with Made at) and ## Changes in the tail; preserves any other tail content; clears Target; uses _ready.md.
+	•	Proofread diff colors: replace=orange (both panes), insert=pink (right), delete=red+strikethrough (left); only real diffs highlighted.
+	•	Grammar toggle works (local rules; optional external fallback); browser spellcheck enabled.
+	•	No regressions of core features when adding plugins; English-only code/comments.
+
+⸻
+
+25) Configurable Parameters (for clarity)
+	•	Density buckets: gray <0.5%, blue 0.5–1.5%, green 1.6–2.9%, red ≥3.0%.
+	•	Autosave: disabled by default; interval (e.g., 60–120s) configurable.
+	•	Keyword highlight filtering: optional min/max % thresholds.
+	•	NLP preview sizes: footer preview (5 bi + 5 tri), sidebar top-N (e.g., 50 lemmas, 30 bi, 30 tri).
+	•	Baseline policy: refresh on each Proofread entry (current rule); can be changed to “manual refresh” if requested.
+

@@ -1,0 +1,309 @@
+TWINS EDITOR — Product & Functional Specification (v2.2 Final)
+
+1) Branding
+	•	Name: TWINS EDITOR
+	•	Logo: icon-300.jpg in the header (hide gracefully if image load fails)
+	•	Header layout: logo + title
+
+⸻
+
+2) Core Layout / Skeleton
+	•	Two CodeMirror panes (Markdown/TXT/JSON)
+		– Left: Source / Baseline / Empty (read-only)
+		– Right: Target (editable)
+	•	Panes have headers (file name) and Live Footers (real-time stats)
+	•	Architecture: core skeleton (layout, styles, base events) isolated from plugins
+	•	Plugins (features) must be modular, idempotent, non-breaking
+	•	Dependencies: CodeMirror 5.x, Markdown mode, active-line addon
+
+⸻
+
+3) Modes (Translation & Proofread)
+
+A) Translation
+	•	Left = Source (if opened) or Empty
+	•	Right = Target (editable)
+	•	Offset & Mirror apply
+	•	Diffs (for Changes block) = Source vs Target if Source exists, else Baseline vs Target
+
+B) Proofread
+	•	Left = Baseline snapshot (read-only)
+	•	Right = current editable Target
+	•	Show only actual differences:
+		– replace → orange (both)
+		– insert → pink (right)
+		– delete → red + strikethrough (left)
+	•	If Baseline == Target → no highlights
+
+C) Mode switch
+	•	Toggle: Mode [Translation | Proofread]
+	•	Switch changes only what left pane shows; never auto-refreshes baseline except on Save
+	•	Label examples:
+		– Proofread: “— baseline (snapshot) —”
+		– Translation w/ source: “Source: …”
+		– Translation w/o source: “— empty —”
+
+⸻
+
+4) Baseline Persistence & Hash-Driven Refresh (v2.1 addendum)
+
+Definitions
+	•	Main block: content before first solo line ---
+	•	Tail: content after first solo ---
+	•	Baseline: snapshot of Target (full text) used in Proofread
+	•	Saved hash: SHA256 of main block from last successful save (recorded in ## STATS)
+
+Rules
+	1. Enter Proofread for the first time → Baseline = current Target (full text)
+	2. Toggling modes never recreates baseline
+	3. Baseline refreshes only after a successful Save that writes a new hash
+	4. If Save fails → baseline and hash remain unchanged
+	5. Baseline and saved hash must match after each successful Save
+	6. Reopening file or toggling modes without new Save → baseline remains unchanged
+
+Diff sources
+	•	Proofread: Baseline vs Target
+	•	Translation: Source vs Target (if Source exists), else Baseline vs Target
+
+Edge cases
+	•	Empty Target → empty baseline
+	•	Open new Target while baseline exists → persists until new Save
+	•	Unsaved edits → diffs against original baseline
+	•	Hash in ## STATS is the single proof a version reached disk
+
+Acceptance test summary
+	•	Toggle Proofread ↔ Translation doesn’t recreate baseline
+	•	Save → new hash → baseline updates
+	•	No save → no baseline change
+	•	On reopen, unchanged hash → baseline same
+
+⸻
+
+5) Buttons & Controls
+
+Above Left pane
+	•	Mode toggle (Translation / Proofread)
+	•	Open Source
+	•	Offset controls (− / number / + / Reset)
+	•	Lock scroll (scroll + cursor sync)
+
+Top toolbar
+	•	Open Target
+	•	Save Target
+	•	Theme toggle (Light/Dark, persisted)
+	•	Undo / Redo
+	•	Grammar (toggle)
+	•	NLP Details (open sidebar)
+
+Hotkeys
+	•	Cmd/Ctrl+S → Save
+	•	Cmd/Ctrl+O → Open Target
+
+⸻
+
+6) File Open & Save
+
+Open
+	•	showOpenFilePicker() preferred; fallback to <input type="file">
+	•	On cancel/error → don’t clear editors
+
+Save
+	1. Compute metrics on main block (before ---)
+	2. Update ## STATS with:
+		- Characters (with spaces)
+		- Words
+		- Headings count
+		- SHA256 (main text block)
+		- Made at (UTC)
+	3. Update ## Changes (diff per mode rules)
+	4. Save as *_ready.md (same for TXT/JSON)
+	5. Clear Target
+	6. Refresh baseline to just-saved Target (associate with new hash)
+
+Failure handling
+	•	On failed save: no baseline/hash changes
+
+⸻
+
+7) Offset & Mirror
+	•	Target line = Source line + offset
+	•	Controls: − / number / + / Reset
+	•	Cursor sync highlights one peer line in other pane
+	•	Clamped to valid line ranges
+	•	Works both ways
+
+⸻
+
+8) Lock Scroll & Cursor Sync
+	•	Scroll or cursor in one pane moves the other (respecting offset)
+	•	User toggle: “Lock scroll”
+
+⸻
+
+9) Keyword Extraction & Overlay
+	•	From either inline (`Keywords:`) or section `# Keywords`
+	•	Separate lists per pane
+	•	Exact token/phrase overlay (no substring matches)
+	•	Footer chips: count + % + color bucket
+	•	Click → highlight all matches
+	•	Optional thresholds to skip rare/overused terms
+
+⸻
+
+10) Density Buckets (keywords & n-grams)
+	p = 100 * (term_occurrences / total_words_in_main_block)
+	Display p with 2 decimals.
+
+	Color buckets:
+	•	gray: p < 0.5% (too rare)
+	•	blue: 0.5–1.5% (under-used)
+	•	green: 1.6–2.9% (good)
+	•	red: ≥3.0% (over-use)
+
+⸻
+
+11) Live Footer (real-time)
+	•	Main block only (ignore tail)
+	•	4 rows per pane:
+		1. chars / words / headings
+		2. keyword chips (count + % + color)
+		3. top-12 bigrams
+		4. top-12 trigrams
+	•	Click chip → highlight all occurrences (red overlay)
+	•	Independent from ## STATS (which is file metadata)
+	•	Recomputes live on every edit
+
+⸻
+
+12) NLP (lemmas, bigrams, trigrams)
+	•	Preferred signals: unique lemmas + top bigrams/trigrams
+	•	Footer preview: top-5 bi, top-5 tri
+	•	Sidebar (NLP Details):
+		– Top Lemmas (top-N)
+		– Top Bigrams
+		– Top Trigrams
+	•	Main block only (ignore tail)
+	•	No single lemma noise in footer
+
+⸻
+
+13) STATS Block (on Save)
+Written/updated after the first --- line.
+
+Format:
+## STATS
+- Characters (with spaces): <N>
+- Words: <N>
+- Headings count: <N>
+- SHA256 (main text block): <hash>
+- Made at (UTC): <ISO>
+
+⸻
+
+14) Changes Block (Proofread Changelog)
+Written/updated after ## STATS.
+
+Format:
+## Changes (proofread)
+1. replace: `old` → `new`
+2. insert: + `inserted text`
+3. delete: − `deleted text`
+
+Diff rules:
+	•	Translation: Source vs Target (if Source exists) else Baseline vs Target
+	•	Proofread: Baseline vs Target
+
+⸻
+
+15) Diff Visualization (Proofread)
+	•	Only real differences highlighted
+	•	replace → orange (both)
+	•	insert → pink (right)
+	•	delete → red + strikethrough (left)
+	•	Deletions always visible to show removal position
+	•	If identical → no highlight
+
+⸻
+
+16) Editing & Selection (Target)
+	•	Full text editing (cursor, selection, clipboard)
+	•	Undo/Redo via CodeMirror + toolbar buttons
+	•	Autosave (optional, off by default) may not break Save rules
+
+⸻
+
+17) Grammar & Spellcheck
+	•	Browser spellcheck enabled in Target
+	•	Grammar toggle:
+		– Local checks: double spaces, repeated punctuation, repeated words
+		– Optional LanguageTool API fallback
+	•	Visual: wavy red underline
+	•	If offline → fallback silently
+
+⸻
+
+18) File Tail Handling
+	•	First solo line --- splits main and tail
+	•	NLP/Stats/Overlays ignore tail
+	•	Tail preserved exactly on save (only STATS and Changes blocks replaced)
+
+⸻
+
+19) UI/UX Summary
+	•	Above Left: Mode toggle, Open Source, Offset set, Lock scroll
+	•	Top toolbar: Open Target, Save, Theme, Undo, Redo, Grammar, NLP Details
+	•	Tooltips for all buttons
+	•	Theme persists via localStorage
+
+⸻
+
+20) Live Updates & Undo
+	•	Stats, overlays, and NLP refresh live
+	•	Undo/Redo standard; optional one-step “Undo last change” button
+
+⸻
+
+21) Acceptance Checklist
+	•	UI shows logo, title, controls in correct places
+	•	Open/Save works with/without FS API; Save clears Target; filename ends _ready.md
+	•	Lock scroll and mirror work both ways; Offset applies correctly
+	•	Footers show 4 live rows; clicking chips highlights exactly
+	•	Density buckets exactly as defined
+	•	NLP preview + sidebar operate on main block only
+	•	Proofread diff colors and visibility correct
+	•	Save writes ## STATS (with Made at, SHA256) then ## Changes; tail preserved
+	•	Grammar toggle functional; browser spellcheck active
+	•	Baseline refresh only after Save (hash change)
+	•	No regressions of core (Theme, Open/Save, Offset, Lock scroll)
+
+⸻
+
+22) Configurable Parameters
+	•	Density thresholds: 0.5 / 1.5 / 2.9 / 3.0 %
+	•	Autosave interval: configurable (default off)
+	•	Keyword min/max filters
+	•	NLP sidebar sizes: lemmas 50, bi/tri 30
+	•	Hash algorithm: SHA256 (fixed)
+	•	Baseline policy: hash-gated refresh (v2.1 final)
+
+⸻
+
+23) Dev Workflow
+	•	Implement core skeleton first
+	•	Add features as isolated plugins
+	•	Each plugin = self-contained module (NLP, Proofread diff, STATS writer, etc.)
+	•	Patches incremental and reversible
+	•	Code/comments in English only
+
+⸻
+
+24) Behavioral Guarantees
+	•	Only actual diffs highlighted
+	•	Deletions visible (left)
+	•	Peer-line highlight one-to-one
+	•	Keyword overlay exact (no substring bleed)
+	•	Feature additions can’t break Theme/Open/Save/Offset/Lock scroll
+
+⸻
+
+Version tag: v2.2 Final — Consolidated spec with hash-based baseline persistence and fully modular feature model.
