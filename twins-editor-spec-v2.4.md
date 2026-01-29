@@ -1,4 +1,4 @@
-# TWINS EDITOR — Product & Functional Specification v2.3
+# TWINS EDITOR — Product & Functional Specification v2.4
 
 ## 1. Product Overview
 
@@ -114,8 +114,10 @@ All controls in one horizontal line:
 5. Download as `originalname_ready.md`
 
 **For TOML/YAML:**
-1. Save content as-is (no stats/changes sections added)
-2. Download as `originalname_ready.toml` or `.yaml`
+1. Keep original content
+2. Append # === STATS === as comments
+3. Append # === CHANGES === as comments
+4. Download as `originalname_ready.toml` or `.yaml`
 
 Both modes:
 - Clear all editors and show welcome text
@@ -531,4 +533,4 @@ Difference: 2.5% / Changes: 12
 
 ---
 
-**Version**: v2.3 — Consolidated specification reflecting actual implementation (app v9.6.3)
+**Version**: v2.4 — Consolidated specification reflecting actual implementation (app v9.6.3)

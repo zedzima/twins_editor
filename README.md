@@ -1,6 +1,6 @@
-# TWINS EDITOR v2.3
+# TWINS EDITOR v2.4
 
-A dual-pane web tool for translating and proofreading Markdown, TXT, and JSON texts with NLP analysis, real-time metrics, and version tracking.
+A dual-pane web tool for translating and proofreading Markdown, TXT, JSON, TOML and YAML texts with NLP analysis, real-time metrics, and version tracking.
 
 ## Features
 
@@ -18,12 +18,12 @@ A dual-pane web tool for translating and proofreading Markdown, TXT, and JSON te
 
 | File | Description |
 |------|-------------|
-| `TWINS_EDITOR_v2.3.html` | Main application (single-file, self-contained) |
-| `twins-editor-spec-v2.3.md` | Complete product & functional specification |
+| `index.html` | Main application (single-file, self-contained) |
+| `twins-editor-spec-v2.4.md` | Complete product & functional specification |
 
 ## Quick Start
 
-1. Open `TWINS_EDITOR_v2.3.html` in a modern browser
+1. Open `index.html` in a modern browser (or visit GitHub Pages)
 2. Select mode: **Translation** (source + target) or **Proofread** (baseline + target)
 3. Load files using Open buttons in pane headers
 4. Edit target text with real-time metrics in footer
@@ -72,5 +72,5 @@ The `archive/` folder contains previous specification versions (v1, v2, v2.1, v2
 
 ---
 
-**Version**: 2.3
+**Version**: 2.4
 **Last Updated**: January 2025
